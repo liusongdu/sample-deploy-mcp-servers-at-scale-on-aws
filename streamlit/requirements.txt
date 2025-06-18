@@ -1,0 +1,6 @@
+asyncio
+fastapi 
+uvicorn 
+mcp
+streamlit
+boto3
