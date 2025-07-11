@@ -51,12 +51,7 @@ This repository provides a CDK application that will deploy the entire demo over
 - Docker - You will require v24.0.0 and above with Docker Buildx, and have the docker daemon running.
 
 ## Deploy
-First run the following command to isntall the necessary Python libraries:
-```
-python -m pip install -r requirements.txt
-```
-
-Next, proceed to deploy the solution:
+Run the following command to install the necessary python libraries and deploy the solution.
 ```
 $ ./deploy.sh
 ```
