@@ -1,4 +1,5 @@
 import json
+import logging
 import random
 import time
 import traceback
@@ -7,6 +8,12 @@ import boto3
 import botocore.exceptions
 
 from botocore.config import Config
+import boto3
+
+
+# Set up our logger
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger()
 
 
 class InlineAgent:
@@ -36,7 +43,7 @@ class InlineAgent:
                 'mode': 'adaptive'
             }
         )
-        bedrock_runtime = boto3.client('bedrock-runtime', config=config)
+
         self.client = boto3.client("bedrock-agent-runtime", config=config)
         
         # Use same session id for continuation of conversation (i.e. maintain history)
@@ -87,9 +94,18 @@ class InlineAgent:
             except botocore.exceptions.ClientError as e:
                 if e.response['Error']['Code'] == 'ThrottlingException':
                     wait_time = 50
-                    print(f"Throttled. Waiting {wait_time:.2f} seconds before retrying...")
+                    logger.warning(f"Throttled. Waiting {wait_time:.2f} seconds before retrying...")
                     time.sleep(wait_time)
                 else:
+                    logger.error(e)
+                    raise
+            except self.client.exceptions.ThrottlingException as e:
+                if e.response['Error']['Code'] == 'ThrottlingException':
+                    wait_time = 50
+                    logger.warning(f"Throttled. Waiting {wait_time:.2f} seconds before retrying...")
+                    time.sleep(wait_time)
+                else:
+                    logger.error(e)
                     raise
             except Exception as e:
                 print(f"An error occurred: {e}")
