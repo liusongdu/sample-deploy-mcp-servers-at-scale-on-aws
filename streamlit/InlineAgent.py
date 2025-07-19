@@ -1,10 +1,12 @@
-
 import boto3
 import random
 import json
 import traceback
+import time
+import botocore.exceptions
 
-class InlineAgent:   
+
+class InlineAgent:
     code_interpreter_tool = {
         "actionGroupName": "UserInputAction",
         "parentActionGroupSignature": "AMAZON.CodeInterpreter"
@@ -65,9 +67,24 @@ class InlineAgent:
     def invoke(self, inputText, endSession=False):
         self.trace = []
         self.request_params["inputText"] = inputText
-        self.request_params["endSession"] = endSession        
-        response = self.client.invoke_inline_agent(**self.request_params)
-        
+        self.request_params["endSession"] = endSession
+        max_retries = 5
+
+        for attempt in range(max_retries):
+            try:
+                response = self.client.invoke_inline_agent(**self.request_params)
+                break
+            except botocore.exceptions.ClientError as e:
+                if e.response['Error']['Code'] == 'ThrottlingException':
+                    wait_time = (2 ** attempt) + random.uniform(0, 1)
+                    print(f"Throttled. Waiting {wait_time:.2f} seconds before retrying...")
+                    time.sleep(wait_time)
+                else:
+                    raise
+            except Exception as e:
+                print(f"An error occurred: {e}")
+                raise
+
         while True:
             event_stream = response["completion"]        
             for event in event_stream:
