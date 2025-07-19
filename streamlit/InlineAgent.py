@@ -1,9 +1,12 @@
-import boto3
-import random
 import json
-import traceback
+import random
 import time
+import traceback
+
+import boto3
 import botocore.exceptions
+
+from botocore.config import Config
 
 
 class InlineAgent:
@@ -26,8 +29,15 @@ class InlineAgent:
         self.agent_instruction = agent_instruction
         self.use_code_interpreter = use_code_interpreter
         self.mcp_clients = mcp_clients
-        
-        self.client = boto3.client("bedrock-agent-runtime")
+
+        config = Config(
+            retries={
+                'max_attempts': 10,  # Default is 3
+                'mode': 'adaptive'
+            }
+        )
+        bedrock_runtime = boto3.client('bedrock-runtime', config=config)
+        self.client = boto3.client("bedrock-agent-runtime", config=config)
         
         # Use same session id for continuation of conversation (i.e. maintain history)
         if (session_id):
