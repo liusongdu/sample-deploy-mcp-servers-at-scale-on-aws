@@ -13,7 +13,7 @@ class InlineAgent:
     # Initialise the inline agent
     def __init__(
         self,
-        model_id="us.anthropic.claude-3-5-haiku-20241022-v1:0",
+        model_id="us.anthropic.claude-3-5-sonnet-20241022-v2:0",
         agent_instruction="You are a helpful AI assistant and will be given a set of tools to help you perform your tasks.",
         action_groups=[],
         mcp_clients={},

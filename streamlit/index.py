@@ -57,7 +57,7 @@ def initialize_agent(_mcp_server_list):
     agent_session_id = str(random.randint(1, 100000))
     
     agent = InlineAgent(
-        model_id="us.anthropic.claude-3-5-haiku-20241022-v1:0",
+        model_id="us.anthropic.claude-3-5-sonnet-20241022-v2:0",
         agent_instruction="""
         You are a AI trading assistant that will help to execute trades and perform post trading processing.
         For each trade you process, you must run it through the functions of the following business divisons:

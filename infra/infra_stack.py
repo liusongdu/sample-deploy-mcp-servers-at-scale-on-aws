@@ -7,8 +7,9 @@ from aws_cdk import (
     Stack,
     aws_logs as logs,
     aws_ecs as ecs,
-    aws_ecr_assets as ecr_assets,
-    Fn,    
+    aws_ecr as ecr,
+    # aws_ecr_assets as ecr_assets,
+    Fn,
     aws_elasticloadbalancingv2 as elbv2,
     aws_dynamodb as dynamodb,
     aws_wafv2 as waf,
@@ -516,26 +517,33 @@ class InfraStack(Stack):
     # ██      ██           ██          ██ ██      ██   ██  ██  ██  ██ ██      ██      
     # ███████  ██████ ███████     ███████ ███████ ██   ██   ████   ██  ██████ ███████ 
 
-    def create_ecs_service(self, 
-                          project_name, 
-                          vpc,
-                          vpc_name,
-                          cluster,
-                          nlb,
-                          service_name,                          
-                          directory, 
-                          source_port, 
-                          target_port,
-                          environ={},
-                          secret_arn=None                
-                          ):
-        # Build Docker images and push to ECR
-        image = ecr_assets.DockerImageAsset(self, 
-            f"{project_name}-{vpc_name}-{service_name}", 
-            directory=directory,
-            platform=ecr_assets.Platform.LINUX_AMD64
+    def create_ecs_service(
+            self,
+            project_name,
+            vpc,
+            vpc_name,
+            cluster,
+            nlb,
+            service_name,
+            repository_name,
+            image_tag,
+            source_port,
+            target_port,
+            environ={},
+            secret_arn=None):
+        # # Build Docker images and push to ECR
+        # image = ecr_assets.DockerImageAsset(self,
+        #     f"{project_name}-{vpc_name}-{service_name}",
+        #     directory=directory,
+        #     platform=ecr_assets.Platform.LINUX_AMD64
+        # )
+        # Reference an existing ECR repository
+        repository = ecr.Repository.from_repository_name(
+            self,
+            f"{project_name}-{vpc_name}-{service_name}",
+            repository_name=repository_name
         )
-        
+
         # Create Security Group - VPC Endpoint
         service_security_group = ec2.SecurityGroup(
             self, f"{project_name}-{vpc_name}-{service_name}-security-group",
@@ -568,10 +576,10 @@ class InfraStack(Stack):
                          "bedrock:DeleteInferenceProfile"
                          ],
                 resources=[
-                    f"arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-5-haiku-20241022-v1:0", 
-                    f"arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-3-5-haiku-20241022-v1:0", 
-                    f"arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-5-haiku-20241022-v1:0", 
-                    f"arn:aws:bedrock:{self.region}:{self.account}:inference-profile/us.anthropic.claude-3-5-haiku-20241022-v1:0",
+                    f"arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0",
+                    f"arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0",
+                    f"arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0",
+                    f"arn:aws:bedrock:{self.region}:{self.account}:inference-profile/us.anthropic.claude-3-5-sonnet-20241022-v2:0",
                 ]
             )
         )
@@ -593,7 +601,8 @@ class InfraStack(Stack):
         
         container = task_definition.add_container(
             f"{project_name}-{vpc_name}-{service_name}-container",
-            image=ecs.ContainerImage.from_docker_image_asset(image),
+            # image=ecs.ContainerImage.from_docker_image_asset(image),
+            image=ecs.ContainerImage.from_ecr_repository(repository, tag=image_tag),
             logging=ecs.LogDriver.aws_logs(stream_prefix=project_name, log_group=service_log_group),
             environment=environ
         )
@@ -740,19 +749,19 @@ class InfraStack(Stack):
         
         # Define MCP servers across various business domain
         trading_mcp_servers = [
-            { "name": "trading-trade-allocation", "description": "Trade allocation functions: allocateTrade, validateTrade", "directory": "./mcp_servers/trading/trade-allocation", "source_port": 10001, "target_port": 8000 },
-            { "name": "trading-trade-execution", "description": "Trade execution functions: executeTrade, sendTradeDetails", "directory": "./mcp_servers/trading/trade-execution", "source_port": 10002, "target_port": 8000 },
+            { "name": "trading-trade-allocation", "description": "Trade allocation functions: allocateTrade, validateTrade", "image_tag": "trade-allocation", "source_port": 10001, "target_port": 8000 },
+            { "name": "trading-trade-execution", "description": "Trade execution functions: executeTrade, sendTradeDetails", "image_tag": "trade-execution", "source_port": 10002, "target_port": 8000 },
         ]
         compliance_mcp_servers = [
-            { "name": "compliance-policy-enforcement", "description": "Policy enforcement functions: auditCompliance, monitorMarketAbuse, updateComplianceRules", "directory": "./mcp_servers/compliance/policy-enforcement", "source_port": 10003, "target_port": 8000 },
-            { "name": "compliance-regulatory-reporting", "description": "Regulatory reporting functions: generateUTI, submitReport, trackReportingStatus", "directory": "./mcp_servers/compliance/regulatory-reporting", "source_port": 10004, "target_port": 8000 },            
+            { "name": "compliance-policy-enforcement", "description": "Policy enforcement functions: auditCompliance, monitorMarketAbuse, updateComplianceRules", "image_tag": "policy-enforcement", "source_port": 10003, "target_port": 8000 },
+            { "name": "compliance-regulatory-reporting", "description": "Regulatory reporting functions: generateUTI, submitReport, trackReportingStatus", "image_tag": "regulatory-reporting", "source_port": 10004, "target_port": 8000 },
         ]
         operations_mcp_servers = [
-            { "name": "operations-settlement", "description": "Operations functions: matchConfirmation, processSettlement  ", "directory": "./mcp_servers/operations/settlement", "source_port": 10005, "target_port": 8000 },            
+            { "name": "operations-settlement", "description": "Operations functions: matchConfirmation, processSettlement  ", "image_tag": "settlement", "source_port": 10005, "target_port": 8000 },
         ]
         risk_mgmt_mcp_servers = [
-            { "name": "risk-mgmt-risk-assessment", "description": "Risk assessment functions: calculateMarketRisk, performStressTest, evaluateLiquidityRisk", "directory": "./mcp_servers/risk-mgmt/risk-assessment", "source_port": 10006, "target_port": 8000 },
-            { "name": "risk-mgmt-risk-monitoring", "description": "Risk monitoring functions: monitorRiskLimits, generateRiskReport, flagRiskBreaches", "directory": "./mcp_servers/risk-mgmt/risk-monitoring", "source_port": 10007, "target_port": 8000 },
+            { "name": "risk-mgmt-risk-assessment", "description": "Risk assessment functions: calculateMarketRisk, performStressTest, evaluateLiquidityRisk", "image_tag": "risk-assessment", "source_port": 10006, "target_port": 8000 },
+            { "name": "risk-mgmt-risk-monitoring", "description": "Risk monitoring functions: monitorRiskLimits, generateRiskReport, flagRiskBreaches", "image_tag": "risk-monitoring", "source_port": 10007, "target_port": 8000 },
         ]
         mcp_server_clusters = [trading_mcp_servers, compliance_mcp_servers, operations_mcp_servers, risk_mgmt_mcp_servers]
         
@@ -807,17 +816,18 @@ class InfraStack(Stack):
         for mcp_server_cluster in mcp_server_clusters:
             for mcp_server in mcp_server_cluster:
                 self.create_ecs_service(
-                                  project_name,
-                                  vpc_tools,
-                                  vpc_tools_name,
-                                  mcp_cluster,
-                                  mcp_nlb,
-                                  mcp_server["name"],
-                                  mcp_server["directory"],
-                                  mcp_server["source_port"],
-                                  mcp_server["target_port"]
+                    project_name,
+                    vpc_tools,
+                    vpc_tools_name,
+                    mcp_cluster,
+                    mcp_nlb,
+                    mcp_server["name"],
+                    "mcp-enterprise",
+                    mcp_server["image_tag"],
+                    mcp_server["source_port"],
+                    mcp_server["target_port"]
                 )
-        
+
         # Create App service - streamlit
         self.create_ecs_service(
             project_name,
@@ -826,7 +836,8 @@ class InfraStack(Stack):
             app_cluster,
             app_nlb,
             "streamlit",
-            "./streamlit",
+            "mcp-enterprise",
+            "streamlit",
             80,
             8501,
             {
