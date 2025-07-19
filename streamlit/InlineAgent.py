@@ -76,7 +76,7 @@ class InlineAgent:
                 break
             except botocore.exceptions.ClientError as e:
                 if e.response['Error']['Code'] == 'ThrottlingException':
-                    wait_time = (2 ** attempt) + random.uniform(0, 1)
+                    wait_time = 50
                     print(f"Throttled. Waiting {wait_time:.2f} seconds before retrying...")
                     time.sleep(wait_time)
                 else:
