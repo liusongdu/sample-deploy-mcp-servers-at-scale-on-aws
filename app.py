@@ -1,13 +1,28 @@
-#!/usr/bin/env python3
 import os
+
 import aws_cdk as cdk
-from infra.infra_stack import InfraStack
-from aws_cdk import Aspects # for CDK NAG
 import cdk_nag # for CDK NAG
+
+from aws_cdk import Aspects # for CDK NAG
 from cdk_nag import NagSuppressions # for CDK NAG
 
+from infra.infra_stack import InfraStack
+
+
 app = cdk.App()
-stack = InfraStack(app, 'MCP-Enterprise', env=cdk.Environment(region="us-east-1"))
+stack = InfraStack(
+    app,
+    'MCP-Enterprise',
+    env=cdk.Environment(
+        account=os.environ.get('CDK_DEFAULT_ACCOUNT'),
+        region="us-east-1"
+    ),
+    # env={
+    #     'account': "976193252250",
+    #     'region': "us-east-1"
+    # }
+)
+
 Aspects.of(app).add(cdk_nag.AwsSolutionsChecks(verbose=True)) # for CDK NAG
 
 NagSuppressions.add_stack_suppressions(stack, [ # for CDK NAG

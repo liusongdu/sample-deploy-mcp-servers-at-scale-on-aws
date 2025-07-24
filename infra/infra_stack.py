@@ -1,3 +1,10 @@
+import json
+import time
+
+import boto3
+
+# from typing import Optional
+
 from aws_cdk import (
     Stack,
     aws_ec2 as ec2,
@@ -19,11 +26,10 @@ from aws_cdk import (
     aws_apigateway as apigateway,
     aws_secretsmanager as secretsmanager,
     aws_s3 as s3,
+    Environment
 )
 from constructs import Construct
-import json
-import boto3
-import time
+
 
 class InfraStack(Stack):
 
@@ -31,8 +37,10 @@ class InfraStack(Stack):
     # ████   ██ ██         ██    ██     ██ ██    ██ ██   ██ ██  ██  
     # ██ ██  ██ █████      ██    ██  █  ██ ██    ██ ██████  █████   
     # ██  ██ ██ ██         ██    ██ ███ ██ ██    ██ ██   ██ ██  ██  
-    # ██   ████ ███████    ██     ███ ███   ██████  ██   ██ ██   ██ 
-
+    # ██   ████ ███████    ██     ███ ███   ██████  ██   ██ ██   ██
+    """
+    Below is the code for the AWS CDK stack that sets up the infrastructure for my AWS environment for my AWS environment.
+    """
     def create_vpc(self, project_name, vpc_name, cidr_range="10.0.0.0/16", nat_gateways=0):
         # Create VPC with two private subnets
         vpc = ec2.Vpc(self, f"{project_name}-{vpc_name}",
@@ -41,22 +49,22 @@ class InfraStack(Stack):
             nat_gateways=nat_gateways
         )
         vpc.apply_removal_policy(RemovalPolicy.DESTROY)
-        
+
         # Create VPC Flow Logs
         self.enable_vpc_flow_logs(project_name, vpc, vpc_name)
-        
+
         return vpc
-        
+
     def enable_vpc_flow_logs(self, project_name, vpc, vpc_name):
         # Create a log group for VPC Flow Logs
         flow_logs_log_group = logs.LogGroup(
-            self, 
+            self,
             f"{project_name}-{vpc_name}-flow-logs",
             log_group_name=f"/aws/vpc-flow-logs/{project_name}-{vpc_name}",
             retention=logs.RetentionDays.ONE_WEEK,
             removal_policy=RemovalPolicy.DESTROY
         )
-        
+
         # Create IAM role for VPC Flow Logs
         flow_logs_role = iam.Role(
             self,
@@ -84,7 +92,7 @@ class InfraStack(Stack):
             }
         )
         flow_logs_role.apply_removal_policy(RemovalPolicy.DESTROY)
-        
+
         # Create VPC Flow Logs
         ec2.FlowLog(
             self,
@@ -94,6 +102,9 @@ class InfraStack(Stack):
             traffic_type=ec2.FlowLogTrafficType.ALL,
             max_aggregation_interval=ec2.FlowLogMaxAggregationInterval.ONE_MINUTE
         )
+    """
+    Up to this point, the code defines a CDK stack for AWS infrastructure setup for my AWS environment.
+    """
     
     # ██    ██ ██████   ██████     ███████ ███    ██ ██████  ██████   ██████  ██ ███    ██ ████████ ███████ 
     # ██    ██ ██   ██ ██          ██      ████   ██ ██   ██ ██   ██ ██    ██ ██ ████   ██    ██    ██      
@@ -110,7 +121,14 @@ class InfraStack(Stack):
         )
         sg_vpc_endpoint.apply_removal_policy(RemovalPolicy.DESTROY)
         sg_vpc_endpoint.add_ingress_rule(ec2.Peer.ipv4(vpc.vpc_cidr_block), connection=ec2.Port.tcp(443))
-        
+        """
+        Below is the code for the alternative environment.
+        """
+        # sg_vpc_endpoint.add_ingress_rule(ec2.Peer.ipv4('10.1.0.0/16'), connection=ec2.Port.tcp(443))
+        """
+        Up to this point, the code is for for the alternative environment.
+        """
+
         # Create VPC Gateway Endpoints for DynamoDB
         dynamodb_endpoint = vpc.add_gateway_endpoint(f"{project_name}-{vpc_name}-DynamoDbEndpoint",service=ec2.GatewayVpcEndpointAwsService.DYNAMODB, )
         dynamodb_endpoint.apply_removal_policy(RemovalPolicy.DESTROY)
@@ -323,6 +341,7 @@ class InfraStack(Stack):
             removal_policy=RemovalPolicy.DESTROY,
         )
         apigateway_log_group.apply_removal_policy(RemovalPolicy.DESTROY)
+
         # Create a security group for the VPC endpoint
         sg_api_vpc_endpoint = ec2.SecurityGroup(
             self, f"{project_name}-api-endpoint-security-group",
@@ -331,6 +350,7 @@ class InfraStack(Stack):
             description="Security group for API Gateway VPC endpoint"
         )
         sg_api_vpc_endpoint.add_ingress_rule(ec2.Peer.ipv4(vpc_agents.vpc_cidr_block), ec2.Port.tcp(443))
+        sg_api_vpc_endpoint.add_ingress_rule(ec2.Peer.ipv4('10.1.0.0/16'), ec2.Port.tcp(443))
         sg_api_vpc_endpoint.apply_removal_policy(RemovalPolicy.DESTROY)
         
         # Create a VPC endpoint for the API Gateway
@@ -387,7 +407,9 @@ class InfraStack(Stack):
             validate_request_body=True,
             validate_request_parameters=True
         )
-
+        """
+        Below is the code for the alternative environment.
+        """
         # Create a WAFv2 web ACL for API GATEWAY REST API
         web_acl_api = waf.CfnWebACL(self, f"{project_name}-waf-acl-api",
             scope="REGIONAL",
@@ -398,11 +420,13 @@ class InfraStack(Stack):
                 sampled_requests_enabled=True
             )
         )
-
+        """
+        Up to this point, the code is for for my environment.
+        """
         # Associate the WAFv2 web ACL with the API Gateway REST API
-        waf_association = waf.CfnWebACLAssociation(self, f"{project_name}-WAFAssociation-API",
+        waf.CfnWebACLAssociation(self, f"{project_name}-WAFAssociation-API",
             resource_arn=f"arn:aws:apigateway:{self.region}::/restapis/{api.rest_api_id}/stages/{api.deployment_stage.stage_name}",
-            web_acl_arn=web_acl_api.attr_arn            
+            web_acl_arn="arn:aws:wafv2:us-east-1:976193252250:regional/webacl/Cov-Lz-Waf-standard-REGIONAL-DEFAULT/230f7e42-8b77-4007-8724-957bc741b311"  # web_acl_api.attr_arn
         )
         
         # Create /registry resource with Lambda proxy integration
@@ -510,7 +534,7 @@ class InfraStack(Stack):
         
         return cluster, nlb
 
-        
+
     # ███████  ██████ ███████     ███████ ███████ ██████  ██    ██ ██  ██████ ███████ 
     # ██      ██      ██          ██      ██      ██   ██ ██    ██ ██ ██      ██      
     # █████   ██      ███████     ███████ █████   ██████  ██    ██ ██ ██      █████   
@@ -539,10 +563,14 @@ class InfraStack(Stack):
         # )
         # Reference an existing ECR repository
         repository = ecr.Repository.from_repository_name(
-            self,
-            f"{project_name}-{vpc_name}-{service_name}",
+            self, f"{project_name}-{vpc_name}-{service_name}",
             repository_name=repository_name
         )
+        # repository = ecr.Repository.from_repository_attributes(
+        #     self, f"{project_name}-{vpc_name}-{service_name}",
+        #     repository_name=repository_name,
+        #     repository_arn=f"arn:aws:ecr:{self.region}:{self.account}:repository/mcp-enterprise"
+        # )
 
         # Create Security Group - VPC Endpoint
         service_security_group = ec2.SecurityGroup(
@@ -552,7 +580,8 @@ class InfraStack(Stack):
         )
         service_security_group.apply_removal_policy(RemovalPolicy.DESTROY)
         service_security_group.add_ingress_rule(ec2.Peer.ipv4(vpc.vpc_cidr_block), connection=ec2.Port.tcp(target_port))
-        
+        service_security_group.add_ingress_rule(ec2.Peer.ipv4('10.1.0.0/16'), connection=ec2.Port.tcp(target_port))
+
         # Create Log Group for ECS Task
         service_log_group = logs.LogGroup(self, f"{project_name}-{vpc_name}-{service_name}-loggroup", 
             log_group_name=f"/aws/ecs/{project_name}-{vpc_name}-{service_name}-loggroup",
@@ -742,9 +771,26 @@ class InfraStack(Stack):
     # ██ ██  ██ ██ ██    ██    
     # ██ ██   ████ ██    ██    
 
-    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
-        super().__init__(scope, construct_id, **kwargs)
-        
+    def __init__(self,
+            scope: Construct,
+            construct_id: str,
+            env: Environment,
+            **kwargs) -> None:
+        super().__init__(scope, construct_id, env=env, **kwargs)
+        """
+        Below is the code for the alternative environment.
+        """
+        # self.vpc_tools = ec2.Vpc.from_lookup(
+        #     self, "ImportedVPCTools",
+        #     vpc_id="vpc-02c3dba8c55ba9310"
+        # )
+        # self.vpc_agents = ec2.Vpc.from_lookup(
+        #     self, "ImportedVPCAgents",
+        #     vpc_id="vpc-064d086f628253eb1"
+        # )
+        """
+        Up to this point, the code is for the alternative environment.
+        """
         project_name = self.stack_name
         
         # Define MCP servers across various business domain
@@ -768,9 +814,18 @@ class InfraStack(Stack):
         
         # Create VPCs
         vpc_tools_name = "vpc-tools"
-        vpc_tools = self.create_vpc(project_name, vpc_tools_name)
         vpc_agents_name = "vpc-agents"
+        vpc_tools = self.create_vpc(project_name, vpc_tools_name)
         vpc_agents = self.create_vpc(project_name, vpc_agents_name)
+        """
+        Below is the code for the alternative environment.
+        """
+        # Referencing existing VPCs in the alternative environment.
+        # vpc_tools = self.vpc_tools
+        # vpc_agents = self.vpc_agents
+        """
+        Up to this point, the code is for the alternative environment.
+        """
         
         # Create VPC Endpoints        
         self.create_default_vpc_endpoints(project_name, vpc_tools, vpc_tools_name)
@@ -785,7 +840,7 @@ class InfraStack(Stack):
         mcp_cluster, mcp_nlb = self.create_ecs_cluster(project_name, vpc_tools, vpc_tools_name, False) # False for non Internet facing nlb
         
         # Create App infra
-        app_cluster, app_nlb = self.create_ecs_cluster(project_name, vpc_agents, vpc_agents_name, True)
+        app_cluster, app_nlb = self.create_ecs_cluster(project_name, vpc_agents, vpc_agents_name, False)
         
         endpoint_service = ec2.VpcEndpointService(
             self, f"{project_name}-mcp-vpcendpointservice",
@@ -802,7 +857,8 @@ class InfraStack(Stack):
         )
         sg_mcp_vpc_endpoint.apply_removal_policy(RemovalPolicy.DESTROY)
         sg_mcp_vpc_endpoint.add_ingress_rule(ec2.Peer.ipv4(vpc_agents.vpc_cidr_block), connection=ec2.Port.all_traffic())
-        
+        sg_mcp_vpc_endpoint.add_ingress_rule(ec2.Peer.ipv4('10.1.0.0/16'), connection=ec2.Port.all_traffic())
+
         # Create Interface VPC Endpoint to access PrivateLink to NLB
         interface_endpoint = ec2.InterfaceVpcEndpoint(
             self, f"{project_name}-mcp-interfaceendpoint",
